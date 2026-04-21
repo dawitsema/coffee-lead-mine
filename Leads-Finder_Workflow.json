@@ -1,0 +1,726 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "3dcdef9a-c76f-47d1-a135-cabe667da9ab-lead-search",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2752,
+        992
+      ],
+      "id": "b6aed488-57c2-4826-8e42-895c1a2c8afb",
+      "name": "Webhook",
+      "webhookId": "3dcdef9a-c76f-47d1-a135-cabe667da9ab"
+    },
+    {
+      "parameters": {
+        "jsCode": "const root = $json.body !== undefined ? $json.body : $json;\nconst country = String(root.country || '').trim();\nlet categories = root.categories;\nif (!Array.isArray(categories) || categories.length === 0) {\n  categories = ['importer', 'exporter', 'broker'];\n}\nlet sources = root.sources;\nif (!Array.isArray(sources) || sources.length === 0) {\n  sources = ['sca', 'nca', 'gafta'];\n}\nconst serperKey = String($env.SERPER_API_KEY || root.serperKey || '').trim();\nconst pdfCoApiKey = String($env.PDF_CO_API_KEY || root.pdfCoApiKey || '').trim();\nif (!country) {\n  throw new Error('country is required in webhook JSON body');\n}\nif (!serperKey) {\n  throw new Error('Set SERPER_API_KEY on the n8n host or pass serperKey in the body for testing');\n}\nreturn [{\n  json: {\n    country,\n    categories,\n    sources,\n    triggeredAt: new Date().toISOString(),\n    serperKey,\n    pdfCoApiKey,\n  },\n}];"
+      },
+      "id": "2511bbc1-9a42-4e2e-915f-6294b52053f7",
+      "name": "Normalize Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $('Normalize Variables').first().json.serperKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: 'site:members.sca.coffee OR site:sca.coffee/find-a-member ' + $('Normalize Variables').first().json.country + ' coffee importer exporter broker', gl: 'us', hl: 'en', num: 10 }) }}",
+        "options": {}
+      },
+      "id": "7e224dd6-ca04-4e75-b75c-30320ae81de1",
+      "name": "Serper – SCA Directory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -2080,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $('Normalize Variables').first().json.serperKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: 'site:ncausa.org member directory ' + $('Normalize Variables').first().json.country + ' coffee buyer seller importer exporter', gl: 'us', hl: 'en', num: 10 }) }}",
+        "options": {}
+      },
+      "id": "24c63034-80ba-4213-9a0f-86219711586c",
+      "name": "Serper – NCA Directory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -2080,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $('Normalize Variables').first().json.serperKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: 'site:gafta.com approved members ' + $('Normalize Variables').first().json.country + ' grain cereal broker freight forwarder', gl: 'us', hl: 'en', num: 10 }) }}",
+        "options": {}
+      },
+      "id": "dee67f92-9735-4b9f-81d6-f582e265c10f",
+      "name": "Serper – GAFTA Directory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -2080,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combineBySql",
+        "numberInputs": 3,
+        "query": "SELECT * FROM input1 UNION ALL SELECT * FROM input2 UNION ALL SELECT * FROM input3"
+      },
+      "id": "fd1ef3f1-a271-41a8-9616-fafaf6e212fd",
+      "name": "Merge Directory Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1856,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Serper organic results; filter by sources/categories; assign leadId\nconst items = $input.all();\nconst config = $('Normalize Variables').first().json;\nconst country = config.country;\nconst sourcesFilter = new Set((config.sources || []).map((s) => String(s).toLowerCase()));\nconst categoriesFilter = new Set((config.categories || []).map((s) => String(s).toLowerCase()));\n\nconst SOURCE_MAP = {\n  'members.sca.coffee': 'SCA Directory',\n  'sca.coffee': 'SCA Directory',\n  'ncausa.org': 'NCA Member List',\n  'gafta.com': 'GAFTA Approved List',\n};\n\nconst SECTOR_MAP = {\n  'SCA Directory': 'coffee',\n  'NCA Member List': 'coffee',\n  'GAFTA Approved List': 'cereal',\n};\n\nconst ROLE_KEYWORDS = [\n  { keywords: ['import'], role: 'Importer' },\n  { keywords: ['export'], role: 'Exporter' },\n  { keywords: ['broker', 'brokerage'], role: 'Broker' },\n  { keywords: ['trader', 'trading', 'commodity'], role: 'Commodity Trader' },\n  { keywords: ['freight', 'forwarder'], role: 'Freight Forwarder' },\n  { keywords: ['roaster', 'roasting'], role: 'Roaster' },\n  { keywords: ['distributor'], role: 'Distributor' },\n];\n\nfunction sourceAllowed(sourceLabel) {\n  if (!sourcesFilter.size) return true;\n  if (sourcesFilter.has('sca') && sourceLabel === 'SCA Directory') return true;\n  if (sourcesFilter.has('nca') && sourceLabel === 'NCA Member List') return true;\n  if (sourcesFilter.has('gafta') && sourceLabel === 'GAFTA Approved List') return true;\n  return false;\n}\n\nfunction roleMatchesCategories(role) {\n  if (!categoriesFilter.size) return true;\n  const r = (role || '').toLowerCase();\n  for (const c of categoriesFilter) {\n    if (c === 'importer' && r.includes('import')) return true;\n    if (c === 'exporter' && r.includes('export')) return true;\n    if (c === 'broker' && r.includes('broker')) return true;\n    if (c === 'grain-trader' && (r.includes('trader') || r.includes('commodity'))) return true;\n    if (c === 'freight-forwarder' && (r.includes('freight') || r.includes('forwarder'))) return true;\n  }\n  return false;\n}\n\nfunction newLeadId() {\n  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {\n    const r = (Math.random() * 16) | 0;\n    const v = c === 'x' ? r : (r & 0x3) | 0x8;\n    return v.toString(16);\n  });\n}\n\nconst leads = [];\n\nfor (const item of items) {\n  const results = item.json.organic || item.json.organic_results || [];\n\n  for (const r of results) {\n    const url = r.link || '';\n    const title = r.title || '';\n    const snip = r.snippet || '';\n    const full = (title + ' ' + snip).toLowerCase();\n\n    let source = 'Unknown';\n    for (const [domain, label] of Object.entries(SOURCE_MAP)) {\n      if (url.includes(domain)) {\n        source = label;\n        break;\n      }\n    }\n    if (source === 'Unknown') continue;\n    if (!sourceAllowed(source)) continue;\n\n    const sector = SECTOR_MAP[source] || 'coffee';\n\n    let role = 'Import-Export Broker';\n    for (const { keywords, role: r2 } of ROLE_KEYWORDS) {\n      if (keywords.some((k) => full.includes(k))) {\n        role = r2;\n        break;\n      }\n    }\n    if (!roleMatchesCategories(role)) continue;\n\n    const company = title.split(/[-|–]/)[0].trim() || title;\n    if (leads.find((l) => l.company === company)) continue;\n\n    leads.push({\n      leadId: newLeadId(),\n      company,\n      country,\n      sector,\n      role,\n      source,\n      sourceUrl: url,\n      snippet: snip,\n      email: '',\n      phone: '',\n      linkedin: '',\n      twitter: '',\n      whatsapp: '',\n      enrichedAt: '',\n      status: 'pending',\n    });\n  }\n}\n\nif (leads.length === 0) {\n  const ph = [\n    { sector: 'coffee', role: 'Exporter', source: 'SCA Directory' },\n    { sector: 'coffee', role: 'Importer', source: 'NCA Member List' },\n    { sector: 'coffee', role: 'Broker', source: 'SCA Directory' },\n    { sector: 'cereal', role: 'Exporter', source: 'GAFTA Approved List' },\n    { sector: 'cereal', role: 'Broker', source: 'GAFTA Approved List' },\n    { sector: 'cereal', role: 'Commodity Trader', source: 'GAFTA Approved List' },\n  ];\n  for (const p of ph) {\n    if (!sourceAllowed(p.source)) continue;\n    if (!roleMatchesCategories(p.role)) continue;\n    leads.push({\n      leadId: newLeadId(),\n      company: `${country} ${p.sector === 'coffee' ? 'Coffee' : 'Grain'} ${p.role} Co.`,\n      country,\n      sector: p.sector,\n      role: p.role,\n      source: p.source,\n      sourceUrl: '',\n      snippet: '',\n      email: '',\n      phone: '',\n      linkedin: '',\n      twitter: '',\n      whatsapp: '',\n      enrichedAt: '',\n      status: 'pending',\n    });\n  }\n}\n\nreturn leads.map((l) => ({ json: l }));"
+      },
+      "id": "7fcd1ae2-a391-4b8d-986f-072297098688",
+      "name": "Code – Parse Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1632,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "d35f7789-7059-4c66-93b6-97f0abeb7e79",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1408,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $('Normalize Variables').first().json.serperKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: '\"' + $json.company + '\" email contact ' + $('Normalize Variables').first().json.country, gl: 'us', hl: 'en', num: 5 }) }}",
+        "options": {}
+      },
+      "id": "a43ad95f-89aa-4c05-b5fb-22d0b12dc85f",
+      "name": "Serper – Email Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1184,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $('Normalize Variables').first().json.serperKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: '\"' + $json.company + '\" site:linkedin.com/company OR site:twitter.com OR site:x.com OR site:wa.me ' + $('Normalize Variables').first().json.country, gl: 'us', hl: 'en', num: 5 }) }}",
+        "options": {}
+      },
+      "id": "f4ce3d31-8007-4efb-abfd-07fa4fae50fc",
+      "name": "Serper – Social & Phone Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1184,
+        1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email Search -> input 0; Social & Phone -> input 1\nconst emailData = $('Serper – Email Search').first().json;\nconst socialData = $('Serper – Social & Phone Search').first().json;\nconst lead = { ...$('Split In Batches').first().json };\n\nconst EMAIL_RE = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\nconst emailResults = emailData.organic || emailData.organic_results || [];\nconst emailText = emailResults.map((r) => (r.title || '') + ' ' + (r.snippet || '')).join(' ');\nconst emailRaw = emailText.match(EMAIL_RE) || [];\nconst blocklist = ['example.com', 'sentry.io', 'wixpress.com', 'placeholder', 'schema.org', 'w3.org', 'googleapis.com'];\nlead.email = emailRaw.filter((e) => !blocklist.some((b) => e.includes(b)))[0] || '';\n\nconst PHONE_RE = /(?:\\+?[0-9]{1,3}[\\s\\-.]?)?(?:\\(?[0-9]{1,4}\\)?[\\s\\-.]?){2,}[0-9]{4,}/g;\nconst phoneFromEmail = emailResults.map((r) => r.snippet || '').join(' ');\nconst phoneRawEmail = phoneFromEmail.match(PHONE_RE) || [];\n\nconst socialResults = socialData.organic || socialData.organic_results || [];\nconst socialText = socialResults.map((r) => (r.title || '') + ' ' + (r.snippet || '') + ' ' + (r.link || '')).join(' ');\nconst phoneRawSocial = socialText.match(PHONE_RE) || [];\n\nlead.phone = phoneRawEmail[0] || phoneRawSocial[0] || '';\n\nfor (const r of socialResults) {\n  const url = (r.link || '').toLowerCase();\n  if (!lead.linkedin && url.includes('linkedin.com/company')) lead.linkedin = r.link;\n  if (!lead.twitter && (url.includes('twitter.com') || url.includes('x.com'))) lead.twitter = r.link;\n  if (!lead.whatsapp && url.includes('wa.me')) lead.whatsapp = r.link;\n}\n\nlead.enrichedAt = new Date().toISOString();\nlead.status = 'enriched';\n\nreturn [{ json: lead }];"
+      },
+      "id": "cce49a7b-53cf-44f1-a154-7d9945238d25",
+      "name": "Code – Extract Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1wadh4J-UNSJDfN1vuVa0KuIfG0El0OxckgLcsSw0Sm8",
+          "mode": "list",
+          "cachedResultName": "Leads - Coffee",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wadh4J-UNSJDfN1vuVa0KuIfG0El0OxckgLcsSw0Sm8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wadh4J-UNSJDfN1vuVa0KuIfG0El0OxckgLcsSw0Sm8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LeadId": "={{ $json.leadId }}",
+            "Company": "={{ $json.company }}",
+            "Country": "={{ $json.country }}",
+            "Sector": "={{ $json.sector }}",
+            "Role": "={{ $json.role }}",
+            "Email": "={{ $json.email }}",
+            "Phone": "={{ $json.phone }}",
+            "LinkedIn": "={{ $json.linkedin }}",
+            "Twitter/X": "={{ $json.twitter }}",
+            "WhatsApp": "={{ $json.whatsapp }}",
+            "Source": "={{ $json.source }}",
+            "Source URL": "={{ $json.sourceUrl }}",
+            "Status": "={{ $json.status }}",
+            "Enriched At": "={{ $json.enrichedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "LeadId",
+              "displayName": "LeadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Country",
+              "displayName": "Country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sector",
+              "displayName": "Sector",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Role",
+              "displayName": "Role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "LinkedIn",
+              "displayName": "LinkedIn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Twitter/X",
+              "displayName": "Twitter/X",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "WhatsApp",
+              "displayName": "WhatsApp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source URL",
+              "displayName": "Source URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Enriched At",
+              "displayName": "Enriched At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "5ece9983-ae5f-4a1c-baf6-a99ade0b869c",
+      "name": "Google Sheets – Append Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -736,
+        1072
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GfjFSrlXPMeRiBgY",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"country\": \"{{ $('Normalize Variables').first().json.country }}\",\n  \"categories\": {{ JSON.stringify($('Normalize Variables').first().json.categories) }},\n  \"triggeredAt\": \"{{ $('Normalize Variables').first().json.triggeredAt }}\",\n  \"message\": \"Pipeline complete. Leads written to Google Sheet.\"\n}",
+        "options": {}
+      },
+      "id": "8b3ce6a2-bb0b-43a5-8e17-f486f2ec48ae",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1184,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "78a746aa-e18b-4483-af7e-a8d4735a9dbc",
+              "leftValue": "={{ ($json.sourceUrl || '').toLowerCase() }}",
+              "rightValue": ".pdf",
+              "operator": {
+                "type": "string",
+                "operation": "endsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "63f41812-fdfe-44bc-bb07-c74f77574afe",
+      "name": "IF – Source Is PDF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdf.co/v1/pdf/convert/to/text",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Normalize Variables').first().json.pdfCoApiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $json.sourceUrl, inline: true, async: false, lang: 'eng' }) }}",
+        "options": {}
+      },
+      "id": "493c69e9-d1ef-4713-b734-daa395353257",
+      "name": "PDF.co – PDF to Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -960,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = { ...$('Split In Batches').first().json };\nconst res = $input.first().json;\n\nif (res.error === true || Number(res.status) >= 400) {\n  lead.snippet = String(res.message || res.body || 'PDF.co request failed');\n  lead.status = 'pdf-error';\n  lead.enrichedAt = new Date().toISOString();\n  return [{ json: lead }];\n}\n\nconst text = String(res.body != null ? res.body : res.text || '');\n\nconst EMAIL_RE = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\nconst PHONE_RE = /(?:\\+?[0-9]{1,3}[\\s\\-.]?)?(?:\\(?[0-9]{1,4}\\)?[\\s\\-.]?){2,}[0-9]{4,}/g;\nconst emails = text.match(EMAIL_RE) || [];\nconst blocklist = ['example.com', 'sentry.io', 'wixpress.com', 'schema.org', 'w3.org', 'googleapis.com'];\nlead.email = emails.filter((e) => !blocklist.some((b) => e.includes(b)))[0] || '';\nconst phones = text.match(PHONE_RE) || [];\nlead.phone = phones[0] || '';\n\nconst li = text.match(/https?:\\/\\/(?:www\\.)?linkedin\\.com\\/(?:company|in)\\/[a-zA-Z0-9\\-_%]+/gi);\nlead.linkedin = li ? li[0] : '';\nconst tw = text.match(/https?:\\/\\/(?:www\\.)?(?:twitter\\.com|x\\.com)\\/[a-zA-Z0-9_]+/gi);\nlead.twitter = tw ? tw[0] : '';\nconst wa = text.match(/https?:\\/\\/wa\\.me\\/[0-9]+/gi);\nlead.whatsapp = wa ? wa[0] : '';\n\nlead.enrichedAt = new Date().toISOString();\nlead.status = 'enriched';\n\nreturn [{ json: lead }];"
+      },
+      "id": "2d7648ae-3f51-42ad-9c72-3ce18e96286a",
+      "name": "Code – PDF Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        800
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper – SCA Directory": {
+      "main": [
+        [
+          {
+            "node": "Merge Directory Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper – NCA Directory": {
+      "main": [
+        [
+          {
+            "node": "Merge Directory Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Serper – GAFTA Directory": {
+      "main": [
+        [
+          {
+            "node": "Merge Directory Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Directory Results": {
+      "main": [
+        [
+          {
+            "node": "Code – Parse Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Parse Leads": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "IF – Source Is PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper – Email Search": {
+      "main": [
+        [
+          {
+            "node": "Code – Extract Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Extract Contacts": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets – Append Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets – Append Row": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Variables": {
+      "main": [
+        [
+          {
+            "node": "Serper – SCA Directory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Serper – NCA Directory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Serper – GAFTA Directory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Source Is PDF": {
+      "main": [
+        [
+          {
+            "node": "PDF.co – PDF to Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Serper – Email Search",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Serper – Social & Phone Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF.co – PDF to Text": {
+      "main": [
+        [
+          {
+            "node": "Code – PDF Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – PDF Contacts": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets – Append Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper – Social & Phone Search": {
+      "main": [
+        [
+          {
+            "node": "Code – Extract Contacts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8f76e6c2ea34efc84fce91f150eadc601668fda22850bce967042be6b67592b1"
+  }
+}

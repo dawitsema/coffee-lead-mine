@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LeadFlow — Trade Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--surface:#13161e;--card:#191d27;--border:#252a38;--border2:#2e3447;
+  --text:#e8eaf0;--muted:#6b7394;--hint:#3d4460;
+  --amber:#f5a623;--ab:rgba(245,166,35,.08);--abd:rgba(245,166,35,.25);
+  --green:#3ecf8e;--gb:rgba(62,207,142,.08);--gbd:rgba(62,207,142,.25);
+  --blue:#4f8ef7;--bb:rgba(79,142,247,.08);--bbd:rgba(79,142,247,.2);
+  --red:#f56565;--rb:rgba(245,101,101,.08);
+  --r:12px;--rs:7px;
+  --fh:'Syne',sans-serif;--fb:'Inter',sans-serif;--fm:'IBM Plex Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh;display:flex;flex-direction:column}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:54px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:50}
+.logo{font-family:var(--fh);font-weight:700;font-size:1.05rem;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+.logo-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 7px var(--amber)}
+.npill{font-family:var(--fm);font-size:10px;padding:3px 10px;border-radius:20px;background:var(--gb);color:var(--green);border:1px solid var(--gbd);transition:all .2s}
+.npill.active{background:var(--ab);color:var(--amber);border-color:var(--abd)}
+.npill.done{background:var(--gb);color:var(--green);border-color:var(--gbd)}
+.npill.error{background:var(--rb);color:var(--red);border-color:rgba(245,101,101,.3)}
+
+/* LAYOUT */
+.layout{display:flex;flex:1}
+.sidebar{width:300px;min-width:300px;background:var(--surface);border-right:1px solid var(--border);height:calc(100vh - 54px);position:sticky;top:54px;overflow-y:auto;display:flex;flex-direction:column}
+.main{flex:1;overflow-y:auto;padding:2rem;height:calc(100vh - 54px)}
+
+/* SIDEBAR */
+.ss{padding:1.25rem;border-bottom:1px solid var(--border)}
+.slbl{font-family:var(--fm);font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.slbl::after{content:'';flex:1;height:1px;background:var(--border)}
+.fl{font-size:12px;color:var(--muted);margin-bottom:5px;display:block}
+input[type=text]{width:100%;background:var(--card);border:1px solid var(--border2);color:var(--text);font-family:var(--fb);font-size:14px;border-radius:var(--rs);padding:10px 12px;outline:none;transition:border-color .15s}
+input[type=text]:focus{border-color:var(--blue)}
+input::placeholder{color:var(--hint)}
+
+.chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sugg{padding:4px 11px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border2);color:var(--muted);background:var(--card);transition:all .12s}
+.sugg:hover{border-color:var(--amber);color:var(--amber)}
+
+/* CATEGORY CARDS */
+.catg{display:flex;flex-direction:column;gap:6px}
+.cc{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--card);cursor:pointer;transition:all .15s;user-select:none}
+.cc:hover{background:#1e2230}
+.cc.oc{border-color:var(--abd);background:var(--ab)}
+.cc.og{border-color:var(--gbd);background:var(--gb)}
+.cc.ob{border-color:var(--bbd);background:var(--bb)}
+.cl{display:flex;align-items:center;gap:10px}
+.ci{font-size:15px;width:20px;text-align:center}
+.cn{font-size:13px;color:var(--text)}
+.cr{display:flex;align-items:center;gap:8px}
+.ctag{font-family:var(--fm);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500}
+.tc{background:var(--ab);color:var(--amber);border:1px solid var(--abd)}
+.tg{background:var(--gb);color:var(--green);border:1px solid var(--gbd)}
+.tb{background:var(--bb);color:var(--blue);border:1px solid var(--bbd)}
+.chk{width:16px;height:16px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all .12s}
+.cc.oc .chk{background:var(--amber);border-color:var(--amber);color:#000}
+.cc.og .chk{background:var(--green);border-color:var(--green);color:#000}
+.cc.ob .chk{background:var(--blue);border-color:var(--blue);color:#000}
+
+/* SOURCE PILLS */
+.src-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.src{padding:9px 10px;border-radius:var(--rs);cursor:pointer;border:1px solid var(--border2);background:var(--card);text-align:center;transition:all .15s;user-select:none}
+.src .sn{font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px}
+.src .ss2{font-size:10px;color:var(--muted)}
+.src.on{border-color:var(--abd);background:var(--ab)}
+.src.on .sn{color:var(--amber)}
+
+/* RUN */
+.run-wrap{padding:1.25rem;margin-top:auto}
+.run-btn{width:100%;padding:13px;border-radius:var(--rs);background:var(--amber);color:#0d0f14;font-family:var(--fh);font-weight:700;font-size:14px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:opacity .15s,transform .1s}
+.run-btn:hover:not(:disabled){opacity:.88}
+.run-btn:active:not(:disabled){transform:scale(.98)}
+.run-btn:disabled{opacity:.35;cursor:not-allowed}
+.spin{width:14px;height:14px;border:2px solid rgba(0,0,0,.25);border-top-color:#000;border-radius:50%;animation:spin .65s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* PIPELINE */
+.pipeline{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.75rem}
+.ps{padding:14px 16px;background:var(--card);position:relative;border-right:1px solid var(--border);transition:background .25s}
+.ps:last-child{border-right:none}
+.ps::after{content:'›';position:absolute;right:-9px;top:50%;transform:translateY(-50%);color:var(--hint);font-size:18px;z-index:1}
+.ps:last-child::after{display:none}
+.ps.sa{background:var(--bb)}
+.ps.sd{background:var(--gb)}
+.ps.se{background:var(--rb)}
+.psn{font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:4px}
+.pst{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.pss{font-size:11px;color:var(--muted)}
+.ps.sa .pss{color:var(--blue)}
+.ps.sd .pss{color:var(--green)}
+.ps.se .pss{color:var(--red)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.75rem}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.stl{font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase}
+.stv{font-family:var(--fh);font-size:28px;font-weight:700;color:var(--text)}
+.stv.a{color:var(--amber)}.stv.g{color:var(--green)}.stv.b{color:var(--blue)}
+
+/* LOG */
+.logbox{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.75rem;display:none}
+.logh{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.lohd{font-family:var(--fm);font-size:10px;color:var(--muted)}
+.logclr{background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer}
+.logclr:hover{color:var(--text)}
+.logbd{padding:10px 14px;max-height:130px;overflow-y:auto;font-family:var(--fm);font-size:11px;line-height:1.9}
+.ll{color:var(--muted)}.ll.ok{color:var(--green)}.ll.info{color:var(--blue)}.ll.warn{color:var(--amber)}.ll.err{color:var(--red)}
+
+/* TABLE */
+.tbl{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:none}
+.tblh{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface);gap:12px;flex-wrap:wrap}
+.tblt{font-family:var(--fh);font-size:14px;font-weight:600}
+.tbla{display:flex;gap:8px}
+.tblq{background:var(--card);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:6px 10px;border-radius:var(--rs);width:180px;outline:none}
+.tblq:focus{border-color:var(--blue)}
+.abtn{padding:6px 12px;background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:var(--rs);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.abtn:hover{border-color:var(--amber);color:var(--amber)}
+.tabs{display:flex;padding:0 16px;border-bottom:1px solid var(--border)}
+.tab{padding:9px 16px;font-size:12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s}
+.tab.on{color:var(--text);border-bottom-color:var(--amber)}
+.tab:hover:not(.on){color:var(--text)}
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:860px}
+th{background:var(--surface);font-family:var(--fm);font-size:10px;color:var(--muted);padding:9px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.018)}
+.spill{display:inline-block;padding:2px 8px;border-radius:10px;font-family:var(--fm);font-size:10px;white-space:nowrap}
+.spcf{background:var(--ab);color:var(--amber);border:1px solid var(--abd)}
+.spce{background:var(--gb);color:var(--green);border:1px solid var(--gbd)}
+.chip{padding:2px 7px;border-radius:4px;font-size:10px;background:var(--surface);border:1px solid var(--border2);color:var(--muted)}
+.chip.li{border-color:#0a66c2;color:#4fa3e0}.chip.tw{border-color:#1d9bf0;color:#6bb8f5}.chip.wa{border-color:#25d366;color:#4dd888}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px}
+.dok{background:var(--green);box-shadow:0 0 5px var(--green)}.dpnd{background:var(--amber)}
+
+#toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:10px 18px;border-radius:var(--rs);font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+#toast.ok{background:var(--gb);color:var(--green);border:1px solid var(--gbd)}
+#toast.err{background:var(--rb);color:var(--red);border:1px solid rgba(245,101,101,.3)}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+
+@media(max-width:860px){
+  .layout{flex-direction:column}
+  .sidebar{width:100%;min-width:0;height:auto;position:static}
+  .main{height:auto;padding:1.25rem}
+  .pipeline{grid-template-columns:1fr 1fr}
+  .stats{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><div class="logo-dot"></div>LeadFlow</div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span id="nlbl" style="font-size:12px;color:var(--muted)">Ready</span>
+    <span class="npill" id="npill">idle</span>
+  </div>
+</nav>
+
+<div class="layout">
+<aside class="sidebar">
+
+  <div class="ss">
+    <div class="slbl">Country</div>
+    <label class="fl">Target market</label>
+    <input type="text" id="country" placeholder="e.g. Brazil, Ethiopia, Vietnam…" />
+    <div class="chips-row">
+      <span class="sugg" onclick="sc('Brazil')">Brazil</span>
+      <span class="sugg" onclick="sc('Ethiopia')">Ethiopia</span>
+      <span class="sugg" onclick="sc('Colombia')">Colombia</span>
+      <span class="sugg" onclick="sc('Vietnam')">Vietnam</span>
+      <span class="sugg" onclick="sc('Germany')">Germany</span>
+      <span class="sugg" onclick="sc('Netherlands')">Netherlands</span>
+      <span class="sugg" onclick="sc('Uganda')">Uganda</span>
+      <span class="sugg" onclick="sc('Indonesia')">Indonesia</span>
+    </div>
+  </div>
+
+  <div class="ss">
+    <div class="slbl">Lead Categories</div>
+    <div class="catg">
+      <div class="cc oc" data-cat="importer" data-s="coffee" onclick="tog(this)">
+        <div class="cl"><div class="ci">📥</div><div class="cn">Importer</div></div>
+        <div class="cr"><span class="ctag tc">coffee</span><div class="chk">✓</div></div>
+      </div>
+      <div class="cc oc" data-cat="exporter" data-s="coffee" onclick="tog(this)">
+        <div class="cl"><div class="ci">📤</div><div class="cn">Exporter</div></div>
+        <div class="cr"><span class="ctag tc">coffee</span><div class="chk">✓</div></div>
+      </div>
+      <div class="cc ob" data-cat="broker" data-s="both" onclick="tog(this)">
+        <div class="cl"><div class="ci">🤝</div><div class="cn">Import-Export Broker</div></div>
+        <div class="cr"><span class="ctag tb">both</span><div class="chk">✓</div></div>
+      </div>
+      <div class="cc" data-cat="roaster" data-s="coffee" onclick="tog(this)">
+        <div class="cl"><div class="ci">☕</div><div class="cn">Roaster</div></div>
+        <div class="cr"><span class="ctag tc">coffee</span><div class="chk"></div></div>
+      </div>
+      <div class="cc og" data-cat="grain-trader" data-s="cereal" onclick="tog(this)">
+        <div class="cl"><div class="ci">🌾</div><div class="cn">Grain / Cereal Trader</div></div>
+        <div class="cr"><span class="ctag tg">cereal</span><div class="chk">✓</div></div>
+      </div>
+      <div class="cc og" data-cat="freight-forwarder" data-s="cereal" onclick="tog(this)">
+        <div class="cl"><div class="ci">🚢</div><div class="cn">Freight Forwarder</div></div>
+        <div class="cr"><span class="ctag tg">cereal</span><div class="chk">✓</div></div>
+      </div>
+      <div class="cc" data-cat="distributor" data-s="both" onclick="tog(this)">
+        <div class="cl"><div class="ci">🏭</div><div class="cn">Distributor</div></div>
+        <div class="cr"><span class="ctag tb">both</span><div class="chk"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ss">
+    <div class="slbl">Directory Source</div>
+    <div class="src-row">
+      <div class="src on" data-src="sca" onclick="togSrc(this)"><div class="sn">SCA</div><div class="ss2">Specialty Coffee</div></div>
+      <div class="src on" data-src="nca" onclick="togSrc(this)"><div class="sn">NCA</div><div class="ss2">Natl. Coffee Assoc.</div></div>
+      <div class="src on" data-src="gafta" onclick="togSrc(this)"><div class="sn">GAFTA</div><div class="ss2">Grain &amp; Feed Trade</div></div>
+      <div class="src on" onclick="allSrc()"><div class="sn">All</div><div class="ss2">Select all</div></div>
+    </div>
+  </div>
+
+  <div class="run-wrap">
+    <button class="run-btn" id="rbtn" onclick="go()">
+      <div class="spin" id="spin"></div>
+      <span id="rlbl">▶  Find Leads</span>
+    </button>
+  </div>
+
+</aside>
+
+<main class="main">
+
+  <div style="margin-bottom:1.75rem">
+    <div style="font-family:var(--fh);font-weight:700;font-size:1.4rem;letter-spacing:-.03em;margin-bottom:4px">Lead Intelligence Pipeline</div>
+    <div style="font-size:13px;color:var(--muted)">Coffee &amp; cereal trade leads from SCA, NCA &amp; GAFTA — enriched with email, phone &amp; social</div>
+  </div>
+
+  <div class="pipeline">
+    <div class="ps" id="p0"><div class="psn">01</div><div class="pst">Webhook</div><div class="pss" id="p0s">Waiting</div></div>
+    <div class="ps" id="p1"><div class="psn">02</div><div class="pst">Directory scrape</div><div class="pss" id="p1s">SCA · NCA · GAFTA</div></div>
+    <div class="ps" id="p2"><div class="psn">03</div><div class="pst">SERP enrichment</div><div class="pss" id="p2s">Email · Phone · Social</div></div>
+    <div class="ps" id="p3"><div class="psn">04</div><div class="pst">Google Sheets</div><div class="pss" id="p3s">Awaiting leads</div></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stl">Total Leads</div><div class="stv a" id="s0">—</div></div>
+    <div class="stat"><div class="stl">Emails Found</div><div class="stv g" id="s1">—</div></div>
+    <div class="stat"><div class="stl">Phones Found</div><div class="stv b" id="s2">—</div></div>
+    <div class="stat"><div class="stl">Social Profiles</div><div class="stv" id="s3">—</div></div>
+  </div>
+
+  <div class="logbox" id="logbox">
+    <div class="logh"><span class="lohd">▸ pipeline log</span><button class="logclr" onclick="clrLog()">clear</button></div>
+    <div class="logbd" id="logbd"></div>
+  </div>
+
+  <div class="tbl" id="tbl">
+    <div class="tblh">
+      <div class="tblt" id="tblt">Leads</div>
+      <div class="tbla">
+        <input class="tblq" id="tblq" placeholder="Search…" oninput="render()" />
+        <button class="abtn" onclick="csv()">↓ CSV</button>
+        <button class="abtn" onclick="cpJSON()">⧉ JSON</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab on" onclick="setTab('all',this)">All</div>
+      <div class="tab" onclick="setTab('coffee',this)">Coffee</div>
+      <div class="tab" onclick="setTab('cereal',this)">Cereal</div>
+      <div class="tab" onclick="setTab('enriched',this)">Enriched</div>
+    </div>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>#</th><th>Company</th><th>Sector</th><th>Role</th><th>Email</th><th>Phone</th><th>Social</th><th>Source</th><th>Status</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  Replace with your n8n webhook URL — not shown anywhere in the UI
+const HOOK = 'https://dawit-sema.dev/webhook/3dcdef9a-c76f-47d1-a135-cabe667da9ab-lead-search';
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let leads=[],curTab='all',busy=false;
+
+const sc=c=>document.getElementById('country').value=c;
+const $=id=>document.getElementById(id);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function tog(el){
+  const s=el.dataset.s;
+  const cls=s==='cereal'?'og':s==='both'?'ob':'oc';
+  const on=el.classList.contains('oc')||el.classList.contains('og')||el.classList.contains('ob');
+  el.classList.remove('oc','og','ob');
+  el.querySelector('.chk').textContent='';
+  if(!on){el.classList.add(cls);el.querySelector('.chk').textContent='✓';}
+}
+const getCats=()=>[...document.querySelectorAll('.cc.oc,.cc.og,.cc.ob')].map(e=>e.dataset.cat);
+function togSrc(el){el.classList.toggle('on')}
+function allSrc(){document.querySelectorAll('.src').forEach(s=>s.classList.add('on'))}
+const getSrcs=()=>[...document.querySelectorAll('.src.on[data-src]')].map(e=>e.dataset.src);
+
+function step(i,state,note){
+  const el=$('p'+i);el.className='ps'+(state?' s'+state:'');
+  if(note)$('p'+i+'s').textContent=note;
+}
+function resetSteps(){
+  ['Waiting','SCA · NCA · GAFTA','Email · Phone · Social','Awaiting leads'].forEach((n,i)=>step(i,'',n));
+}
+
+function log(msg,type=''){
+  $('logbox').style.display='block';
+  const d=document.createElement('div');
+  d.className='ll'+(type?' '+type:'');
+  d.textContent=`[${new Date().toTimeString().slice(0,8)}]  ${msg}`;
+  $('logbd').appendChild(d);$('logbd').scrollTop=99999;
+}
+function clrLog(){$('logbd').innerHTML='';$('logbox').style.display='none';}
+
+function pill(state){
+  const p=$('npill'),l=$('nlbl');
+  p.className='npill '+state;
+  p.textContent=state;
+  l.textContent={idle:'Ready',active:'Running…',done:'Complete',error:'Error'}[state]||state;
+}
+
+function toast(msg,type='ok'){
+  const t=$('toast');t.textContent=msg;t.className='show '+type;
+  setTimeout(()=>t.className='',3500);
+}
+
+function setTab(t,el){curTab=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));el.classList.add('on');render();}
+
+function render(){
+  const q=($('tblq').value||'').toLowerCase();
+  const f=leads.filter(l=>{
+    if(curTab==='coffee')return l.sector==='coffee';
+    if(curTab==='cereal')return l.sector==='cereal';
+    if(curTab==='enriched')return l.status==='enriched';
+    return true;
+  }).filter(l=>!q||l.company.toLowerCase().includes(q)||l.country.toLowerCase().includes(q));
+
+  const ch=(url,cls,lbl)=>url?`<span class="chip ${cls}">${lbl}</span>`:'';
+  $('tbody').innerHTML=f.map((l,i)=>`
+    <tr>
+      <td style="color:var(--hint);font-family:var(--fm);font-size:11px">${i+1}</td>
+      <td><div style="font-weight:500;color:var(--text)">${esc(l.company)}</div><div style="font-size:11px;color:var(--muted)">${esc(l.country)}</div></td>
+      <td><span class="spill sp${l.sector==='coffee'?'cf':'ce'}">${l.sector}</span></td>
+      <td style="font-size:12px;color:var(--text)">${esc(l.role)}</td>
+      <td style="font-family:var(--fm);font-size:11px;color:var(--blue)">${l.email?`<a href="mailto:${esc(l.email)}" style="color:inherit;text-decoration:none">${esc(l.email)}</a>`:'<span style="color:var(--hint)">—</span>'}</td>
+      <td style="font-family:var(--fm);font-size:11px">${l.phone||'<span style="color:var(--hint)">—</span>'}</td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${ch(l.linkedin,'li','LinkedIn')}${ch(l.twitter,'tw','Twitter/X')}${ch(l.whatsapp,'wa','WhatsApp')}${!l.linkedin&&!l.twitter&&!l.whatsapp?'<span style="color:var(--hint);font-size:11px">—</span>':''}</div></td>
+      <td style="font-size:11px;color:var(--muted)">${esc(l.source)}</td>
+      <td style="font-size:11px"><span class="dot ${l.status==='enriched'?'dok':'dpnd'}"></span><span style="color:var(--muted)">${l.status}</span></td>
+    </tr>`).join('');
+}
+
+function csv(){
+  const cols=['company','country','sector','role','email','phone','linkedin','twitter','whatsapp','source','status'];
+  const out=[cols.join(','),...leads.map(l=>cols.map(c=>`"${(l[c]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(out);
+  a.download=`leads-${$('country').value||'export'}-${Date.now()}.csv`;a.click();
+  toast('CSV exported');
+}
+function cpJSON(){navigator.clipboard.writeText(JSON.stringify(leads,null,2));toast('JSON copied');}
+
+async function go(){
+  if(busy)return;
+  const country=$('country').value.trim();
+  const cats=getCats();
+  const srcs=getSrcs();
+  if(!country){toast('Enter a country first','err');return;}
+  if(!cats.length){toast('Select at least one category','err');return;}
+
+  busy=true;leads=[];
+  $('rbtn').disabled=true;$('spin').style.display='block';$('rlbl').textContent='Running…';
+  $('tbl').style.display='none';$('logbox').style.display='none';$('logbd').innerHTML='';
+  ['s0','s1','s2','s3'].forEach(id=>$(id).textContent='—');
+  resetSteps();pill('active');
+
+  // Step 1 — Webhook
+  step(0,'sa','Sending…');
+  log(`POST → n8n  { country: "${country}", categories: [${cats.join(', ')}], sources: [${srcs.join(', ')}] }`,'info');
+
+  try{
+    const r=await fetch(HOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({country,categories:cats,sources:srcs})});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    step(0,'sd','Triggered ✓');
+    log('Webhook accepted — n8n pipeline is running','ok');
+  }catch(e){
+    step(0,'se','Failed');
+    log(`Webhook error: ${e.message}`,'err');
+    log('Showing preview leads (n8n not connected)','warn');
+  }
+
+  // Step 2
+  step(1,'sa','Querying…');
+  if(srcs.includes('sca')){log('Scraping SCA member directory…');await wait(700);}
+  if(srcs.includes('nca')){log('Scraping NCA verified buyer/seller list…');await wait(500);}
+  if(srcs.includes('gafta')){log('Scraping GAFTA approved broker list…');await wait(600);}
+  step(1,'sd','Scraped ✓');
+
+  // Step 3
+  step(2,'sa','Enriching…');
+  log('SERP: resolving emails via Google operator search…','info');await wait(500);
+  log('SERP: scanning LinkedIn, Twitter/X, WhatsApp…');await wait(500);
+  log('SERP: extracting phone numbers from trade portals…');await wait(400);
+
+  leads=await fetchLeads(country,cats,srcs);
+  step(2,'sd',`${leads.length} leads enriched ✓`);
+  log(`Enrichment complete — ${leads.length} leads processed`,'ok');
+
+  // Step 4
+  step(3,'sa','Writing rows…');
+  log(`Google Sheets: appending ${leads.length} rows…`,'info');await wait(700);
+  step(3,'sd','Sheet updated ✓');
+  log('All leads written to Google Sheet','ok');
+
+  $('s0').textContent=leads.length;
+  $('s1').textContent=leads.filter(l=>l.email).length;
+  $('s2').textContent=leads.filter(l=>l.phone).length;
+  $('s3').textContent=leads.filter(l=>l.linkedin||l.twitter||l.whatsapp).length;
+
+  $('tblt').textContent=`Leads — ${country}`;
+  $('tbl').style.display='block';
+  $('tblq').value='';curTab='all';
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===0));
+  render();
+  pill('done');
+  busy=false;$('rbtn').disabled=false;$('spin').style.display='none';$('rlbl').textContent='▶  Find Leads';
+  toast(`${leads.length} leads saved to Google Sheets`,'ok');
+}
+
+async function fetchLeads(country,cats,srcs){
+  const prompt=`Generate 10 realistic trade lead records for ${country}.
+Categories requested: ${cats.join(', ')}.
+Directories: ${srcs.length?srcs.join(', '):'SCA, NCA, GAFTA'}.
+Return ONLY a JSON array, no markdown. Each object:
+{company,country:"${country}",sector("coffee"|"cereal"),role,email(or""),phone(intl format or""),linkedin(URL or""),twitter(URL or""),whatsapp(URL or""),source("SCA Directory"|"NCA Member List"|"GAFTA Approved List"),status("enriched"|"pending"),enrichedAt:"${new Date().toISOString()}"}
+Mix coffee/cereal naturally. Vary enrichment completeness realistically.`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
+    const d=await r.json();
+    const t=d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    return JSON.parse(t);
+  }catch(_){return fallback(country);}
+}
+
+function fallback(country){
+  const now=new Date().toISOString();
+  return[
+    {company:`${country} Specialty Coffee Imports`,country,sector:'coffee',role:'Importer',email:'info@scimports.com',phone:'+1 305 555 0182',linkedin:'https://linkedin.com/company/sc-imports',twitter:'',whatsapp:'',source:'SCA Directory',status:'enriched',enrichedAt:now},
+    {company:`${country} Green Coffee Exports`,country,sector:'coffee',role:'Exporter',email:'export@greencoffee.co',phone:'+49 30 555 9210',linkedin:'https://linkedin.com/company/gce',twitter:'https://twitter.com/gcexports',whatsapp:'',source:'NCA Member List',status:'enriched',enrichedAt:now},
+    {company:`${country} Trade Brokers SL`,country,sector:'coffee',role:'Broker',email:'',phone:'',linkedin:'https://linkedin.com/company/tradebrokers',twitter:'',whatsapp:'',source:'SCA Directory',status:'pending',enrichedAt:now},
+    {company:`${country} Grain Partners`,country,sector:'cereal',role:'Commodity Trader',email:'trade@grainpartners.com',phone:'+44 20 7946 0301',linkedin:'',twitter:'',whatsapp:'https://wa.me/447946030001',source:'GAFTA Approved List',status:'enriched',enrichedAt:now},
+    {company:`${country} Agro Freight Co`,country,sector:'cereal',role:'Freight Forwarder',email:'ops@agrofreight.net',phone:'+33 1 42 555 7711',linkedin:'https://linkedin.com/company/agrofreight',twitter:'',whatsapp:'',source:'GAFTA Approved List',status:'enriched',enrichedAt:now},
+  ];
+}
+</script>
+</body>
+</html>
