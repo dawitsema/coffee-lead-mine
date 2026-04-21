@@ -839,7 +839,6 @@
             <div class="spin" id="spin"></div>
             <span id="rlbl">▶ Find leads</span>
           </button>
-          <p id="runHint" style="font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.45"></p>
         </div>
       </aside>
 
@@ -1503,12 +1502,6 @@
         setDailyQuote();
         resetSteps();
         pill('idle');
-
-        var hint = $('runHint');
-        if (!C.proxyTriggerUrl) {
-          hint.textContent =
-            'Deploy the Netlify or Vercel proxy with N8N_WEBHOOK_URL, then set proxyTriggerUrl in config.js.';
-        }
 
         loadLeads();
       })();
