@@ -35,7 +35,7 @@ return [{
   },
 }];"""
 
-PARSE_LEADS_JS = r"""// Parse Serper organic results; filter by sources/categories; assign leadId
+PARSE_LEADS_JS = r"""// Parse Serper organic results; filter by sources/categories; assign leadsId
 const items = $input.all();
 const config = $('Normalize Variables').first().json;
 const country = config.country;
@@ -86,7 +86,7 @@ function roleMatchesCategories(role) {
   return false;
 }
 
-function newLeadId() {
+function newLeadsId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -131,7 +131,7 @@ for (const item of items) {
     if (leads.find((l) => l.company === company)) continue;
 
     leads.push({
-      leadId: newLeadId(),
+      leadsId: newLeadsId(),
       company,
       country,
       sector,
@@ -163,7 +163,7 @@ if (leads.length === 0) {
     if (!sourceAllowed(p.source)) continue;
     if (!roleMatchesCategories(p.role)) continue;
     leads.push({
-      leadId: newLeadId(),
+      leadsId: newLeadsId(),
       company: `${country} ${p.sector === 'coffee' ? 'Coffee' : 'Grain'} ${p.role} Co.`,
       country,
       sector: p.sector,
@@ -360,11 +360,11 @@ def main() -> None:
             )
         if n.get("name") == "Google Sheets – Append Row":
             cols = n["parameters"]["columns"]
-            cols["value"]["LeadId"] = "={{ $json.leadId }}"
-            # Prepend LeadId to schema
+            cols["value"]["Leads_Id"] = "={{ $json.leadsId }}"
+            # Prepend Leads_Id to schema
             lead_schema = {
-                "id": "LeadId",
-                "displayName": "LeadId",
+                "id": "Leads_Id",
+                "displayName": "Leads_Id",
                 "required": False,
                 "defaultMatch": False,
                 "display": True,

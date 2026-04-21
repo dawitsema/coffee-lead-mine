@@ -391,13 +391,23 @@
         color: var(--muted);
         max-width: 52ch;
       }
-      .hero code {
-        font-family: var(--fm);
-        font-size: 11px;
-        background: var(--card);
-        padding: 2px 6px;
-        border-radius: 4px;
-        border: 1px solid var(--border2);
+      .hero-quote {
+        font-size: 15px !important;
+        line-height: 1.55 !important;
+        color: var(--text) !important;
+        max-width: 44ch !important;
+      }
+      .hero-quote strong {
+        color: var(--amber);
+        font-weight: 600;
+      }
+      .hero-attrib {
+        display: block;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        font-style: italic;
+        letter-spacing: 0.02em;
       }
 
       .pipeline {
@@ -836,10 +846,8 @@
       <main class="main">
         <div class="hero">
           <h1>Lead intelligence</h1>
-          <p>
-            POST <code>country</code>, <code>categories</code>, <code>sources</code> via your proxy → n8n. Sheet rows load with JSONP from Apps Script. Set
-            <code>web/config.js</code> (see <code>config.sample.js</code>).
-          </p>
+          <p class="hero-quote" id="dailyQuoteText"></p>
+          <span class="hero-attrib" id="dailyQuoteAuthor"></span>
         </div>
 
         <div class="pipeline">
@@ -932,6 +940,52 @@
     <script>
       (function () {
         const C = window.LEADS_CONFIG || {};
+
+        /** One entry per calendar day (1–31). Index = day of month − 1. */
+        const DAILY_QUOTES = [
+          { text: 'The secret of getting ahead is getting started.', author: 'Mark Twain' },
+          { text: "You don't have to be great to start, but you have to start to be great.", author: 'Zig Ziglar' },
+          { text: 'The only way to do great work is to love what you do.', author: 'Steve Jobs' },
+          { text: 'Opportunities do not happen. You create them.', author: 'Chris Grosser' },
+          { text: 'The future belongs to those who believe in the beauty of their dreams.', author: 'Eleanor Roosevelt' },
+          { text: 'Success is the sum of small efforts, repeated day in and day out.', author: 'Robert Collier' },
+          { text: 'Do what you can, with what you have, where you are.', author: 'Theodore Roosevelt' },
+          { text: 'It always seems impossible until it is done.', author: 'Nelson Mandela' },
+          { text: 'The harder you work for something, the greater you will feel when you achieve it.', author: 'Unknown' },
+          { text: 'Do not watch the clock; do what it does. Keep going.', author: 'Sam Levenson' },
+          { text: 'Quality means doing it right when no one is looking.', author: 'Henry Ford' },
+          { text: 'Well done is better than well said.', author: 'Benjamin Franklin' },
+          { text: 'The way to get started is to quit talking and begin doing.', author: 'Walt Disney' },
+          { text: 'I find that the harder I work, the more luck I seem to have.', author: 'Thomas Jefferson' },
+          { text: 'Someday is not a day of the week.', author: 'Denise Brennan-Nelson' },
+          { text: 'Action is the foundational key to all success.', author: 'Pablo Picasso' },
+          { text: 'If you really want to do something, you will find a way. If you do not, you will find an excuse.', author: 'Jim Rohn' },
+          { text: 'Do not be pushed by your problems. Be led by your dreams.', author: 'Ralph Waldo Emerson' },
+          { text: 'Excellence is never an accident; it is the result of high intention and intelligent effort.', author: 'Aristotle' },
+          { text: 'Start where you are. Use what you have. Do what you can.', author: 'Arthur Ashe' },
+          { text: 'Your limitation—it is only your imagination.', author: 'Unknown' },
+          { text: 'Great things never come from comfort zones.', author: 'Unknown' },
+          { text: 'Push yourself, because no one else is going to do it for you.', author: 'Unknown' },
+          { text: 'Dream bigger. Do bigger.', author: 'Unknown' },
+          { text: 'Success does not just find you. You have to go out and get it.', author: 'Unknown' },
+          { text: 'The key to success is to focus on goals, not obstacles.', author: 'Unknown' },
+          { text: 'Dream it. Wish it. Do it.', author: 'Unknown' },
+          { text: 'Wake up with determination. Go to bed with satisfaction.', author: 'Unknown' },
+          { text: 'Little progress each day adds up to big results.', author: 'Unknown' },
+          { text: 'Discipline is choosing between what you want now and what you want most.', author: 'Unknown' },
+          { text: 'What you do today can improve all your tomorrows.', author: 'Ralph Marston' },
+        ];
+
+        function setDailyQuote() {
+          var day = new Date().getDate();
+          var idx = (day - 1) % DAILY_QUOTES.length;
+          var q = DAILY_QUOTES[idx];
+          var qt = document.getElementById('dailyQuoteText');
+          var qa = document.getElementById('dailyQuoteAuthor');
+          if (!qt || !qa) return;
+          qt.textContent = '\u201c' + q.text + '\u201d';
+          qa.textContent = '\u2014 ' + q.author;
+        }
 
         const CATS = [
           { id: 'importer', label: 'Importer', icon: '📥', sector: 'coffee', cls: 'oc', defaultOn: true },
@@ -1219,7 +1273,7 @@
             var phone = rowGet(l, ['Phone', 'phone']);
             var source = rowGet(l, ['Source', 'source']);
             var status = rowGet(l, ['Status', 'status']);
-            var leadId = rowGet(l, ['LeadId', 'leadId']);
+            var leadId = rowGet(l, ['Leads_Id', 'leadsId', 'LeadId', 'leadId']);
             var sp = sector === 'cereal' ? 'spce' : 'spcf';
 
             var tr = document.createElement('tr');
@@ -1279,13 +1333,14 @@
             });
             sel.addEventListener('change', function () {
               if (!leadId) {
-                logLine('Row missing LeadId — add column in Sheet.', 'err');
-                toast('No LeadId on row', 'err');
+                logLine('Row missing Leads_Id — add column on Sheet1.', 'err');
+                toast('No Leads_Id on row', 'err');
                 return;
               }
               jsonp(C.gasBaseUrl, {
                 action: 'updateStatus',
                 token: C.gasToken,
+                leadsId: leadId,
                 leadId: leadId,
                 status: sel.value,
               })
@@ -1327,7 +1382,7 @@
 
         function csvExport() {
           var cols = [
-            ['LeadId', ['LeadId', 'leadId']],
+            ['Leads_Id', ['Leads_Id', 'leadsId', 'LeadId', 'leadId']],
             ['Company', ['Company', 'company']],
             ['Country', ['Country', 'country']],
             ['Sector', ['Sector', 'sector']],
@@ -1445,6 +1500,7 @@
         $('rbtn').addEventListener('click', go);
 
         buildSidebar();
+        setDailyQuote();
         resetSteps();
         pill('idle');
 
